@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { SomalipinRecord } from '../types';
+import { SomalipinRecord } from '../types.ts';
 
 interface ChartsProps {
   records: SomalipinRecord[];

@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 export const performDeepReview = async (name: string, description: string, category: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: 'gemini-3-flash-preview',
       contents: `Perform a verification check on the following entity from Somalia's registry:
       Entity Name: ${name}
       Category: ${category}

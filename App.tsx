@@ -50,10 +50,10 @@ import {
     Eye,
     Phone
 } from 'lucide-react';
-import { RecordStatus, RecordCategory, SomalipinRecord, ProgressStats, JournalEntry, SystemLog, MyDayTask, Appointment } from './types';
-import StatCard from './components/StatCard';
-import Charts from './components/Charts';
-import { performDeepReview } from './services/geminiService';
+import { RecordStatus, RecordCategory, SomalipinRecord, ProgressStats, JournalEntry, SystemLog, MyDayTask, Appointment } from './types.ts';
+import StatCard from './components/StatCard.tsx';
+import Charts from './components/Charts.tsx';
+import { performDeepReview } from './services/geminiService.ts';
 
 const SAMPLE_RECORDS: SomalipinRecord[] = [
     {
@@ -276,7 +276,7 @@ const App: React.FC = () => {
             id: Date.now().toString(),
             date: new Date().toISOString().split('T')[0],
             achievements: formData.get('achievements') as string,
-            challenges: formData.get('challenges') as string,
+            challenges: "None",
             tasks_completed: parseInt(formData.get('tasks') as string) || 0,
             next_steps: formData.get('next_steps') as string,
             tags: (formData.get('tags') as string).split(',').map(t => t.trim()).filter(t => t)
