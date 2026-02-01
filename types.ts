@@ -77,3 +77,26 @@ export interface Appointment {
     outcomeReport?: string;
     completedAt?: string;
 }
+
+export interface NetworkingContact {
+    id: string;
+    name: string;
+    phone: string;
+    category?: string;
+    addedAt: string;
+}
+
+export interface FinanceEntry {
+    id: string;
+    description: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category: string;
+    date: string;
+}
+
+export interface BrainDumpEntry {
+    id: string;
+    text: string;
+    timestamp: string;
+}

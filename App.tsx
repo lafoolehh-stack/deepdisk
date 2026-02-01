@@ -48,90 +48,47 @@ import {
     ClipboardCheck,
     Send,
     Eye,
-    Phone
+    Phone,
+    MessageSquare,
+    UserPlus,
+    Link2,
+    Brain,
+    Banknote,
+    TrendingDown,
+    Plus,
+    Wallet,
+    Lightbulb,
+    ArrowDownRight,
+    Calculator
 } from 'lucide-react';
-import { RecordStatus, RecordCategory, SomalipinRecord, ProgressStats, JournalEntry, SystemLog, MyDayTask, Appointment } from './types.ts';
+import { RecordStatus, RecordCategory, SomalipinRecord, ProgressStats, JournalEntry, SystemLog, MyDayTask, Appointment, NetworkingContact, FinanceEntry, BrainDumpEntry } from './types.ts';
 import StatCard from './components/StatCard.tsx';
 import Charts from './components/Charts.tsx';
-import { performDeepReview } from './services/geminiService.ts';
-
-const SAMPLE_RECORDS: SomalipinRecord[] = [
-    {
-        id: "SP-6434",
-        name: "Mohamed Abdulkadir (Ugaska)",
-        category: RecordCategory.NATIONAL_REGISTRY,
-        status: RecordStatus.PENDING,
-        ai_score: 95,
-        description: "XILDHIBAAN GOLAHA SHACABKA EE BJFS",
-        sector: "Politics",
-        phase: 1,
-        gemini_result: "Mohamed Abdulkadir, commonly known as Ugaska, is a verified Member of the House of the People of the Federal Parliament of Somalia."
-    },
-    {
-        id: "SP-6435",
-        name: "Xildhibaan Zadek Omar Hassan",
-        category: RecordCategory.NATIONAL_REGISTRY,
-        status: RecordStatus.PENDING,
-        ai_score: 95,
-        description: "XILDHIBAAN GOLAHA SHACABKA",
-        sector: "Politics",
-        phase: 1
-    },
-    {
-        id: "SP-6436",
-        name: "Warshada biyaha Caafi",
-        category: RecordCategory.BUSINESS,
-        status: RecordStatus.PENDING,
-        ai_score: 85,
-        description: "Warshada biyaha Caafi - Mineral Water Production",
-        sector: "Business",
-        phase: 1
-    },
-    {
-        id: "SP-6437",
-        name: "Dr. Aamina Sheikh",
-        category: RecordCategory.NATIONAL_REGISTRY,
-        status: RecordStatus.VERIFIED,
-        ai_score: 98,
-        description: "Wasaaradda Caafimaadka Senior Advisor",
-        sector: "Health",
-        phase: 1,
-        last_reviewed: "2024-03-20 10:30:00"
-    },
-    {
-        id: "SP-6438",
-        name: "Prof. Ahmed Yusuf",
-        category: RecordCategory.PUBLIC_INSTITUTIONS,
-        status: RecordStatus.VERIFIED,
-        ai_score: 92,
-        description: "Jaamacadda Ummada Academic Board",
-        sector: "Education",
-        phase: 1,
-        last_reviewed: "2024-03-19 14:15:00"
-    }
-];
 
 const TARGET_GOAL = 401;
 
-type AppView = 'journal-new' | 'journal-list' | 'journal-summary' | 'report' | 'profiles' | 'dashboard' | 'queue' | 'add' | 'myday';
-type MyDayTab = 'tasks' | 'appointments';
+type AppView = 'journal-new' | 'journal-list' | 'journal-summary' | 'myday';
+type MyDayTab = 'tasks' | 'appointments' | 'networking' | 'braindump' | 'finance';
 
 const App: React.FC = () => {
-    const [view, setView] = useState<AppView>('dashboard');
+    const [view, setView] = useState<AppView>('myday');
     const [myDayTab, setMyDayTab] = useState<MyDayTab>('tasks');
-    const [records, setRecords] = useState<SomalipinRecord[]>(SAMPLE_RECORDS);
     const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
     const [myDayTasks, setMyDayTasks] = useState<MyDayTask[]>([]);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [networkingContacts, setNetworkingContacts] = useState<NetworkingContact[]>([]);
+    const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>([]);
+    const [brainDumpEntries, setBrainDumpEntries] = useState<BrainDumpEntry[]>([]);
+    const [currentBrainThought, setCurrentBrainThought] = useState('');
     const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<RecordStatus | 'all'>('all');
-    const [categoryFilter, setCategoryFilter] = useState<RecordCategory | 'all'>('all');
-    const [selectedRecord, setSelectedRecord] = useState<SomalipinRecord | null>(null);
-    const [isReviewing, setIsReviewing] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+    const [showNetworkingForm, setShowNetworkingForm] = useState(false);
+    const [showFinanceForm, setShowFinanceForm] = useState(false);
+    const [selectedContactForMsg, setSelectedContactForMsg] = useState<NetworkingContact | null>(null);
+    const [networkingMsgDraft, setNetworkingMsgDraft] = useState('');
     const [taskForLetter, setTaskForLetter] = useState<MyDayTask | null>(null);
     const [completingAppId, setCompletingAppId] = useState<string | null>(null);
     const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
@@ -141,23 +98,31 @@ const App: React.FC = () => {
 
     // Persistence
     useEffect(() => {
-        const savedRecords = localStorage.getItem('somalipin_records');
         const savedJournal = localStorage.getItem('somalipin_journal');
         const savedTasks = localStorage.getItem('somalipin_myday');
         const savedAppointments = localStorage.getItem('somalipin_appointments');
-        if (savedRecords) try { setRecords(JSON.parse(savedRecords)); } catch (e) {}
+        const savedNetworking = localStorage.getItem('somalipin_networking');
+        const savedFinance = localStorage.getItem('somalipin_finance');
+        const savedBrainDump = localStorage.getItem('somalipin_braindump_entries');
+
         if (savedJournal) try { setJournalEntries(JSON.parse(savedJournal)); } catch (e) {}
         if (savedTasks) try { setMyDayTasks(JSON.parse(savedTasks)); } catch (e) {}
         if (savedAppointments) try { setAppointments(JSON.parse(savedAppointments)); } catch (e) {}
-        addLog("System initialized. Phase 1 Internal Manager ready.", "info");
+        if (savedNetworking) try { setNetworkingContacts(JSON.parse(savedNetworking)); } catch (e) {}
+        if (savedFinance) try { setFinanceEntries(JSON.parse(savedFinance)); } catch (e) {}
+        if (savedBrainDump) try { setBrainDumpEntries(JSON.parse(savedBrainDump)); } catch (e) {}
+
+        addLog("System initialized. Somalipin Operations Hub online.", "info");
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('somalipin_records', JSON.stringify(records));
         localStorage.setItem('somalipin_journal', JSON.stringify(journalEntries));
         localStorage.setItem('somalipin_myday', JSON.stringify(myDayTasks));
         localStorage.setItem('somalipin_appointments', JSON.stringify(appointments));
-    }, [records, journalEntries, myDayTasks, appointments]);
+        localStorage.setItem('somalipin_networking', JSON.stringify(networkingContacts));
+        localStorage.setItem('somalipin_finance', JSON.stringify(financeEntries));
+        localStorage.setItem('somalipin_braindump_entries', JSON.stringify(brainDumpEntries));
+    }, [journalEntries, myDayTasks, appointments, networkingContacts, financeEntries, brainDumpEntries]);
 
     useEffect(() => {
         if (logScrollRef.current) {
@@ -175,64 +140,21 @@ const App: React.FC = () => {
         setSystemLogs(prev => [...prev.slice(-49), newLog]);
     };
 
-    const stats: ProgressStats = useMemo(() => {
-        const verified = records.filter(r => r.status === RecordStatus.VERIFIED).length;
-        const pending = records.filter(r => r.status === RecordStatus.PENDING).length;
-        const under_review = records.filter(r => r.status === RecordStatus.UNDER_REVIEW).length;
-        return {
-            verified,
-            pending,
-            under_review,
-            total_records: records.length,
-            progress_percentage: (verified / TARGET_GOAL) * 100,
-            remaining: TARGET_GOAL - verified,
-            target: TARGET_GOAL
-        };
-    }, [records]);
-
-    const filteredRecords = useMemo(() => {
-        return records.filter(r => {
-            const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                 r.id.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-            const matchesCategory = categoryFilter === 'all' || r.category === categoryFilter;
-            return matchesSearch && matchesStatus && matchesCategory;
-        });
-    }, [records, searchTerm, statusFilter, categoryFilter]);
-
     const todayStats = useMemo(() => {
         const todayStr = new Date().toISOString().split('T')[0];
         const entries = journalEntries.filter(e => e.date === todayStr);
         const tasks = entries.reduce((acc, curr) => acc + curr.tasks_completed, 0);
-        const newlyVerified = records.filter(r => r.status === RecordStatus.VERIFIED && r.last_reviewed?.includes(todayStr)).length;
-        return { entries, tasks, newlyVerified };
-    }, [journalEntries, records]);
+        return { entries, tasks };
+    }, [journalEntries]);
 
-    const handleAddRecord = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const name = formData.get('name') as string;
-        const category = formData.get('category') as RecordCategory;
-        const sector = formData.get('sector') as string;
-        const description = formData.get('description') as string;
-
-        const newId = `SP-${Math.max(...records.map(r => parseInt(r.id.split('-')[1]) || 0), 6438) + 1}`;
-        
-        const newRecord: SomalipinRecord = {
-            id: newId,
-            name,
-            category,
-            sector,
-            description,
-            status: RecordStatus.PENDING,
-            phase: 1
-        };
-
-        setRecords([newRecord, ...records]);
-        addLog(`Added new record: ${name} (${newId})`, "success");
-        setView('queue');
-    };
+    const financeSummary = useMemo(() => {
+        return financeEntries.reduce((acc, curr) => {
+            if (curr.type === 'income') acc.income += curr.amount;
+            else acc.expense += curr.amount;
+            acc.balance = acc.income - acc.expense;
+            return acc;
+        }, { income: 0, expense: 0, balance: 0 });
+    }, [financeEntries]);
 
     const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -267,6 +189,61 @@ const App: React.FC = () => {
         setAppointments([...appointments, newAppointment]);
         addLog(`Balan cusub: ${newAppointment.personName} at ${newAppointment.time}`, "success");
         setShowAppointmentForm(false);
+    };
+
+    const handleAddNetworkingContact = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const newContact: NetworkingContact = {
+            id: Date.now().toString(),
+            name: formData.get('name') as string,
+            phone: formData.get('phone') as string,
+            category: formData.get('category') as string || 'General',
+            addedAt: new Date().toISOString()
+        };
+        setNetworkingContacts([...networkingContacts, newContact]);
+        addLog(`Xiriir networking ah oo cusub: ${newContact.name}`, "success");
+        setShowNetworkingForm(false);
+    };
+
+    const handleAddFinanceEntry = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const newEntry: FinanceEntry = {
+            id: Date.now().toString(),
+            description: formData.get('description') as string,
+            amount: parseFloat(formData.get('amount') as string) || 0,
+            type: formData.get('type') as 'income' | 'expense',
+            category: formData.get('category') as string || 'General',
+            date: new Date().toISOString()
+        };
+        setFinanceEntries([newEntry, ...financeEntries]);
+        addLog(`Finance entry added: ${newEntry.description}`, "success");
+        setShowFinanceForm(false);
+    };
+
+    const handleAddBrainThought = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentBrainThought.trim()) return;
+        const newEntry: BrainDumpEntry = {
+            id: Date.now().toString(),
+            text: currentBrainThought.trim(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setBrainDumpEntries([newEntry, ...brainDumpEntries]);
+        setCurrentBrainThought('');
+        addLog("Fikrad cusub ayaa lagu tuuray Brain Dump-ka.", "info");
+    };
+
+    const handleSendNetworkingMsg = () => {
+        if (!selectedContactForMsg || !networkingMsgDraft) return;
+        const signature = "\n\n- Mohamed H Lafoole, CEO of Somalipin";
+        const fullMsg = networkingMsgDraft + signature;
+        const phone = selectedContactForMsg.phone.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(fullMsg)}`, '_blank');
+        addLog(`Networking message loo diray: ${selectedContactForMsg.name}`, "success");
+        setSelectedContactForMsg(null);
+        setNetworkingMsgDraft('');
     };
 
     const handleAddJournal = (e: React.FormEvent<HTMLFormElement>) => {
@@ -361,44 +338,6 @@ const App: React.FC = () => {
         }
     };
 
-    const verifyRecord = (id: string) => {
-        const record = records.find(r => r.id === id);
-        if (!confirm(`Are you sure you want to verify ${record?.name}?`)) return;
-        const updated = records.map(r => r.id === id ? { 
-            ...r, 
-            status: RecordStatus.VERIFIED, 
-            last_reviewed: new Date().toISOString().replace('T', ' ').split('.')[0] 
-        } : r);
-        setRecords(updated);
-        setSelectedRecord(updated.find(r => r.id === id) || null);
-        addLog(`Official Verification successful: ${record?.name}`, "success");
-    };
-
-    const runAIReview = async (record: SomalipinRecord) => {
-        setIsReviewing(true);
-        addLog(`Initiating AI Deep Review for ${record.name}...`, "ai");
-        try {
-            const result = await performDeepReview(record.name, record.description, record.category);
-            const updatedRecords = records.map(r => 
-                r.id === record.id ? { 
-                    ...r, 
-                    ai_score: result.score, 
-                    gemini_result: result.analysis, 
-                    sector: result.sectorSuggestion || r.sector,
-                    status: RecordStatus.UNDER_REVIEW,
-                    last_reviewed: new Date().toISOString().replace('T', ' ').split('.')[0]
-                } : r
-            );
-            setRecords(updatedRecords);
-            setSelectedRecord(updatedRecords.find(r => r.id === record.id) || null);
-            addLog(`Deep Review complete: Confidence ${result.score}% for ${record.name}`, "ai");
-        } catch (e) {
-            addLog(`Deep Review failed for ${record.name}`, "warning");
-        } finally {
-            setIsReviewing(false);
-        }
-    };
-
     const handlePrintLetter = (task: MyDayTask) => {
         setTaskForLetter(task);
         setTimeout(() => {
@@ -411,71 +350,58 @@ const App: React.FC = () => {
         <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 overflow-hidden">
             {/* Sidebar */}
             <aside className={`
-                fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out
+                fixed inset-y-0 left-0 z-50 w-72 bg-[#0f172a] text-white transform transition-transform duration-300 ease-in-out
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-                md:relative md:translate-x-0 print:hidden
+                md:relative md:translate-x-0 print:hidden border-r border-slate-800/50
             `}>
                 <div className="p-6 h-full flex flex-col">
-                    <div className="flex items-center gap-3 mb-10">
-                        <div className="bg-indigo-600 p-2 rounded-lg">
-                            <ShieldCheck size={24} className="text-white" />
+                    <div className="flex items-center gap-4 mb-12 px-2">
+                        <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-600/20">
+                            <ShieldCheck size={26} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="font-bold text-lg leading-none tracking-tight text-white">SOMALIPIN</h1>
-                            <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase mt-1">Full System Disk</p>
+                            <h1 className="font-black text-xl leading-none tracking-tight text-white uppercase italic">SOMALIPIN</h1>
+                            <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mt-1.5 opacity-80">Full System Disk</p>
                         </div>
                     </div>
 
-                    <div className="space-y-8 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                    <div className="space-y-10 overflow-y-auto flex-1 pr-1 custom-scrollbar scroll-smooth">
                         <div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-4">Daily Operations</p>
-                            <nav className="space-y-1">
-                                <button onClick={() => { setView('myday'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'myday' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <Sun size={18} /> My Day
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 px-4 opacity-60">Daily Operations</p>
+                            <nav className="space-y-1.5">
+                                <button onClick={() => { setView('myday'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl text-[13px] font-bold transition-all duration-300 group ${view === 'myday' ? 'bg-[#4f46e5] text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <Sun size={20} className={view === 'myday' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'} /> My Day
                                 </button>
-                                <button onClick={() => { setView('journal-new'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'journal-new' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <PlusCircle size={18} /> Diwaan Cusub
+                                <button onClick={() => { setView('journal-new'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl text-[13px] font-bold transition-all duration-300 group ${view === 'journal-new' ? 'bg-[#4f46e5] text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <PlusCircle size={20} className={view === 'journal-new' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'} /> Diwaan Cusub
                                 </button>
-                                <button onClick={() => { setView('journal-list'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'journal-list' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <BookOpen size={18} /> Akhri Diwaan
+                                <button onClick={() => { setView('journal-list'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl text-[13px] font-bold transition-all duration-300 group ${view === 'journal-list' ? 'bg-[#4f46e5] text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <BookOpen size={20} className={view === 'journal-list' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'} /> Akhri Diwaan
                                 </button>
-                                <button onClick={() => { setView('journal-summary'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'journal-summary' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <Activity size={18} /> Koobid Maalinta
-                                </button>
-                            </nav>
-                        </div>
-
-                        <div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-4">Registry Core</p>
-                            <nav className="space-y-1">
-                                <button onClick={() => { setView('dashboard'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <LayoutDashboard size={18} /> Dashboard
-                                </button>
-                                <button onClick={() => { setView('queue'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'queue' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <Search size={18} /> Review Queue
-                                </button>
-                                <button onClick={() => { setView('profiles'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'profiles' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <Users size={18} /> Profiles Tracker
-                                </button>
-                                <button onClick={() => { setView('report'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${view === 'report' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <FileBarChart size={18} /> System Reports
+                                <button onClick={() => { setView('journal-summary'); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-2xl text-[13px] font-bold transition-all duration-300 group ${view === 'journal-summary' ? 'bg-[#4f46e5] text-white shadow-xl shadow-indigo-600/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <Activity size={20} className={view === 'journal-summary' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'} /> Koobid Maalinta
                                 </button>
                             </nav>
                         </div>
                     </div>
                     
-                    <div className="mt-auto pt-6 border-t border-slate-800">
-                        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 rounded-xl mb-4">
-                            <Activity size={16} className="text-indigo-400" />
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Phase 1 Active</p>
+                    <div className="mt-auto pt-8 border-t border-slate-800/80">
+                        <div className="flex items-center gap-4 px-5 py-3.5 bg-white/5 rounded-[20px] mb-6 animate-pulse-subtle">
+                            <Activity size={18} className="text-indigo-400 animate-pulse" />
+                            <p className="text-[11px] font-black uppercase tracking-[0.15em] text-slate-300">Operations Hub Active</p>
                         </div>
-                        <div className="flex items-center gap-3 px-4 py-2">
-                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold border border-slate-600">JD</div>
-                            <div className="flex-1 overflow-hidden">
-                                <p className="text-xs font-semibold truncate text-white">Journal Desktop</p>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-tighter">System Manager</p>
+                        <div className="flex items-center gap-4 px-2 group cursor-pointer">
+                            <div className="relative">
+                                <div className="w-11 h-11 rounded-[16px] bg-slate-800 flex items-center justify-center font-bold text-sm text-white border border-slate-700/50 shadow-lg group-hover:border-indigo-500/50 transition-colors">JD</div>
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#0f172a] rounded-full"></div>
                             </div>
-                            <LogOut size={16} className="text-slate-500 cursor-pointer hover:text-red-400" />
+                            <div className="flex-1 overflow-hidden">
+                                <p className="text-[13px] font-bold truncate text-white leading-tight">Journal Desktop</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-wider mt-0.5">System Manager</p>
+                            </div>
+                            <button className="p-2 text-slate-500 hover:text-red-400 transition-colors">
+                                <LogOut size={18} />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -493,77 +419,17 @@ const App: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input 
                             type="text" 
-                            placeholder="Search records, tasks or logs..." 
+                            placeholder="Search tasks, appointments or ideas..." 
                             className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="hidden sm:flex flex-col items-end mr-2">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Verified: {stats.verified} / {TARGET_GOAL}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${stats.progress_percentage}%` }}></div>
-                                </div>
-                                <span className="text-[10px] font-black text-slate-700">{stats.progress_percentage.toFixed(1)}%</span>
-                            </div>
-                        </div>
                     </div>
                 </header>
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth bg-slate-50/50 print:p-0 print:bg-white relative">
                     
-                    {/* View: Dashboard */}
-                    {view === 'dashboard' && (
-                        <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div>
-                                    <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">System Dashboard</h2>
-                                    <p className="text-sm text-slate-500 font-medium">Internal metrics for Somalia National Registry Phase 1.</p>
-                                </div>
-                                <button onClick={() => setView('queue')} className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2">
-                                    Review Terminal <Terminal size={16} />
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                <StatCard label="Total Entities" value={stats.total_records} icon={<PieChart size={24} />} colorClass="text-slate-600" />
-                                <StatCard label="Verified" value={stats.verified} icon={<CheckCircle2 size={24} />} colorClass="text-emerald-600" />
-                                <StatCard label="Under Review" value={stats.under_review} icon={<Activity size={24} />} colorClass="text-indigo-600" />
-                                <StatCard label="Goal Remaining" value={stats.remaining} icon={<Clock size={24} />} colorClass="text-amber-600" />
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2">
-                                    <Charts records={records} />
-                                </div>
-                                <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 flex flex-col min-h-[300px]">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Terminal size={14} /> System Logs
-                                        </h3>
-                                    </div>
-                                    <div ref={logScrollRef} className="flex-1 overflow-y-auto space-y-2 font-mono custom-scrollbar pr-2">
-                                        {systemLogs.map(log => (
-                                            <div key={log.id} className="text-[10px] leading-relaxed">
-                                                <span className="text-slate-600">[{log.timestamp}]</span>{' '}
-                                                <span className={`
-                                                    ${log.type === 'success' ? 'text-emerald-400' : ''}
-                                                    ${log.type === 'ai' ? 'text-indigo-400' : ''}
-                                                    ${log.type === 'warning' ? 'text-amber-400' : ''}
-                                                    ${log.type === 'info' ? 'text-slate-400' : ''}
-                                                `}>{log.message}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* View: My Day */}
                     {view === 'myday' && (
                         <div className="max-w-6xl mx-auto space-y-6 py-4 animate-in fade-in slide-in-from-bottom-4 duration-500 print:hidden">
@@ -573,16 +439,26 @@ const App: React.FC = () => {
                                         <Sun size={32} />
                                         <h2 className="text-4xl font-black tracking-tighter text-slate-900 uppercase">My Day</h2>
                                     </div>
-                                    <div className="flex items-center gap-6 mt-4">
-                                        <button onClick={() => setMyDayTab('tasks')} className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${myDayTab === 'tasks' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Hawlaha (Tasks)</button>
-                                        <button onClick={() => setMyDayTab('appointments')} className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${myDayTab === 'appointments' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Balamaha (Appointments)</button>
+                                    <div className="flex items-center gap-4 mt-4 overflow-x-auto custom-scrollbar pb-2">
+                                        <button onClick={() => setMyDayTab('tasks')} className={`text-[10px] whitespace-nowrap font-black uppercase tracking-widest pb-2 border-b-2 transition-all shrink-0 ${myDayTab === 'tasks' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Hawlaha (Tasks)</button>
+                                        <button onClick={() => setMyDayTab('appointments')} className={`text-[10px] whitespace-nowrap font-black uppercase tracking-widest pb-2 border-b-2 transition-all shrink-0 ${myDayTab === 'appointments' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Balamaha (Appointments)</button>
+                                        <button onClick={() => setMyDayTab('networking')} className={`text-[10px] whitespace-nowrap font-black uppercase tracking-widest pb-2 border-b-2 transition-all shrink-0 ${myDayTab === 'networking' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Xiriir (Networking)</button>
+                                        <button onClick={() => setMyDayTab('braindump')} className={`text-[10px] whitespace-nowrap font-black uppercase tracking-widest pb-2 border-b-2 transition-all shrink-0 ${myDayTab === 'braindump' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Brain Dump</button>
+                                        <button onClick={() => setMyDayTab('finance')} className={`text-[10px] whitespace-nowrap font-black uppercase tracking-widest pb-2 border-b-2 transition-all shrink-0 ${myDayTab === 'finance' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>Finance</button>
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    {myDayTab === 'tasks' ? (
+                                    {myDayTab === 'tasks' && (
                                         <button onClick={() => setShowTaskForm(!showTaskForm)} className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 flex items-center justify-center gap-2"><PlusCircle size={14} /> Hawl Cusub</button>
-                                    ) : (
+                                    )}
+                                    {myDayTab === 'appointments' && (
                                         <button onClick={() => setShowAppointmentForm(!showAppointmentForm)} className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-200 flex items-center justify-center gap-2"><UserCheck size={14} /> Balan Cusub</button>
+                                    )}
+                                    {myDayTab === 'networking' && (
+                                        <button onClick={() => setShowNetworkingForm(!showNetworkingForm)} className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 flex items-center justify-center gap-2"><UserPlus size={14} /> Xiriir Cusub</button>
+                                    )}
+                                    {myDayTab === 'finance' && (
+                                        <button onClick={() => setShowFinanceForm(!showFinanceForm)} className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 flex items-center justify-center gap-2"><Plus size={14} /> Entry Cusub</button>
                                     )}
                                 </div>
                             </div>
@@ -752,134 +628,270 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {/* View: Review Queue */}
-                    {view === 'queue' && (
-                        <div className="max-w-7xl mx-auto flex flex-col h-full gap-6 animate-in fade-in duration-500">
-                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                                <div>
-                                    <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Review Queue</h2>
-                                    <p className="text-sm text-slate-500 mt-1 font-medium italic">Verification terminal active.</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2">
-                                        <Filter size={14} className="text-slate-400" />
-                                        <select className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest text-slate-700" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
-                                            <option value="all">Dhamaan (All)</option>
-                                            <option value={RecordStatus.PENDING}>Pending</option>
-                                            <option value={RecordStatus.UNDER_REVIEW}>Under Review</option>
-                                            <option value={RecordStatus.VERIFIED}>Verified</option>
-                                        </select>
-                                    </div>
-                                    <button onClick={() => setView('add')} className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase shadow-xl hover:bg-indigo-700 transition-all">Add Record</button>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
-                                <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                                    <div className="overflow-x-auto custom-scrollbar">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-slate-50/50 border-b border-slate-200">
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entity Info</th>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Category</th>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">AI Match</th>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredRecords.map(record => (
-                                                    <tr key={record.id} className={`hover:bg-indigo-50/50 cursor-pointer transition-all ${selectedRecord?.id === record.id ? 'bg-indigo-50' : ''}`} onClick={() => setSelectedRecord(record)}>
-                                                        <td className="px-6 py-6">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-xs text-slate-500">{record.name.charAt(0)}</div>
+                            {myDayTab === 'networking' && (
+                                <div className="space-y-6 max-w-5xl mx-auto">
+                                    <div className="flex flex-col md:flex-row gap-6">
+                                        <div className="flex-1 space-y-6">
+                                            {showNetworkingForm && (
+                                                <div className="bg-white p-6 rounded-3xl border-2 border-indigo-100 shadow-xl animate-in zoom-in-95 duration-300">
+                                                    <h3 className="text-sm font-black text-slate-800 uppercase mb-4 flex items-center gap-2"><UserPlus size={16} /> Diiwaangali Qof Cusub</h3>
+                                                    <form onSubmit={handleAddNetworkingContact} className="space-y-4">
+                                                        <input name="name" required placeholder="Magaca qofka..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm" />
+                                                        <input name="phone" required placeholder="Lambarka WhatsApp (e.g. 25261...)" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm" />
+                                                        <div className="flex gap-2">
+                                                            <input name="category" placeholder="Qaybta (Govt, Business...)" className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm" />
+                                                            <button type="submit" className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Save</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {networkingContacts.length === 0 ? (
+                                                    <div className="col-span-full py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-slate-300">
+                                                        <Users size={48} strokeWidth={1} className="mb-2" />
+                                                        <p className="text-[10px] font-black uppercase tracking-widest">Eber xiriir (Empty Networking)</p>
+                                                    </div>
+                                                ) : (
+                                                    networkingContacts.map(contact => (
+                                                        <div key={contact.id} className={`bg-white p-5 rounded-[2rem] border transition-all group relative cursor-pointer ${selectedContactForMsg?.id === contact.id ? 'border-indigo-500 shadow-lg ring-4 ring-indigo-50' : 'border-slate-100 hover:border-indigo-200'}`} onClick={() => setSelectedContactForMsg(contact)}>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm ${selectedContactForMsg?.id === contact.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                                                    {contact.name.charAt(0)}
+                                                                </div>
+                                                                <div className="flex-1 overflow-hidden">
+                                                                    <h4 className="text-sm font-black text-slate-800 leading-none truncate">{contact.name}</h4>
+                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{contact.phone}</p>
+                                                                </div>
+                                                                <button onClick={(e) => { e.stopPropagation(); setNetworkingContacts(networkingContacts.filter(c => c.id !== contact.id)); }} className="p-1.5 text-slate-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                                                            </div>
+                                                            <div className="mt-3 flex items-center justify-between">
+                                                                <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-50 text-slate-400 rounded-lg">{contact.category || 'Networking'}</span>
+                                                                {selectedContactForMsg?.id === contact.id ? <Check size={14} className="text-indigo-600" /> : <ChevronRight size={14} className="text-slate-300" />}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="w-full md:w-[400px]">
+                                            {selectedContactForMsg ? (
+                                                <div className="bg-[#0f172a] text-white p-8 rounded-[2.5rem] shadow-2xl animate-in slide-in-from-right-4 duration-500 relative flex flex-col h-full sticky top-4">
+                                                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                                                    <div className="relative z-10 flex flex-col h-full">
+                                                        <div className="flex items-center justify-between mb-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-sm text-white">
+                                                                    <MessageSquare size={18} />
+                                                                </div>
                                                                 <div>
-                                                                    <p className="text-sm font-black text-slate-800">{record.name}</p>
-                                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{record.id} • {record.sector}</p>
+                                                                    <h3 className="text-lg font-black uppercase tracking-tighter leading-none">Modern Composer</h3>
+                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">To: {selectedContactForMsg.name}</p>
                                                                 </div>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-6 py-6 text-center">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter bg-slate-100 px-2 py-1 rounded-lg">{record.category}</span>
-                                                        </td>
-                                                        <td className="px-6 py-6 text-center">
-                                                            {record.ai_score ? <span className={`text-xs font-black ${record.ai_score >= 90 ? 'text-emerald-600' : 'text-amber-600'}`}>{record.ai_score}%</span> : <span className="text-slate-200 text-xs font-black">---</span>}
-                                                        </td>
-                                                        <td className="px-6 py-6 text-right">
-                                                            <ChevronRight size={18} className="text-slate-300 inline" />
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                {selectedRecord && (
-                                    <div className="w-full lg:w-[450px] bg-white rounded-3xl shadow-xl border border-slate-200 p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar animate-in slide-in-from-right-4 duration-300">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <span className="text-[10px] font-black text-indigo-600 uppercase mb-1 block">{selectedRecord.id}</span>
-                                                <h3 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{selectedRecord.name}</h3>
-                                            </div>
-                                            <button onClick={() => setSelectedRecord(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X size={20} /></button>
-                                        </div>
-                                        <div className="space-y-6">
-                                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                                                <p className="text-xs font-black text-slate-800 uppercase">{selectedRecord.status}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Registry Description</p>
-                                                <p className="text-sm text-slate-600 bg-indigo-50/20 p-5 rounded-2xl border border-indigo-100 italic leading-relaxed">"{selectedRecord.description}"</p>
-                                            </div>
-                                            {selectedRecord.gemini_result ? (
-                                                <div className="space-y-4">
-                                                    <div className="flex justify-between items-center"><span className="text-xs font-black text-slate-700">AI Deep Analysis</span><span className="text-xl font-black text-indigo-600">{selectedRecord.ai_score}%</span></div>
-                                                    <div className="p-5 bg-slate-900 text-slate-300 rounded-2xl text-xs leading-relaxed font-medium italic shadow-2xl border border-slate-800">{selectedRecord.gemini_result}</div>
+                                                            <button onClick={() => setSelectedContactForMsg(null)} className="p-2 text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
+                                                        </div>
+                                                        <div className="flex-1 space-y-4">
+                                                            <div className="space-y-2">
+                                                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Message Body</label>
+                                                                <textarea 
+                                                                    rows={8} 
+                                                                    placeholder="Qor fariintaada networking-ka ah..." 
+                                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-[13px] text-slate-200 outline-none focus:border-indigo-500/50 transition-all font-medium leading-relaxed custom-scrollbar"
+                                                                    value={networkingMsgDraft}
+                                                                    onChange={(e) => setNetworkingMsgDraft(e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-inner">
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1"><FileSignature size={10} /> Official Signature</p>
+                                                                <p className="text-xs font-black text-indigo-400 italic leading-tight">
+                                                                    - Mohamed H Lafoole, CEO of Somalipin
+                                                                </p>
+                                                            </div>
+                                                            <button 
+                                                                onClick={handleSendNetworkingMsg}
+                                                                disabled={!networkingMsgDraft}
+                                                                className="w-full py-4 bg-[#25D366] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-[#128C7E] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale"
+                                                            >
+                                                                <Send size={18} /> Dir WhatsApp
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ) : (
-                                                <button disabled={isReviewing} onClick={() => runAIReview(selectedRecord)} className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3">
-                                                    {isReviewing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : 'Initiate Deep Review'}
-                                                </button>
-                                            )}
-                                            {selectedRecord.status !== RecordStatus.VERIFIED && (
-                                                <button onClick={() => verifyRecord(selectedRecord.id)} className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-                                                    <CheckCircle2 size={16} /> Official Verification
-                                                </button>
+                                                <div className="bg-white border-2 border-dashed border-slate-100 p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
+                                                    <div className="bg-slate-50 p-6 rounded-full mb-6">
+                                                        <Link2 size={48} className="text-slate-200" />
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Networking Active</h3>
+                                                    <p className="text-xs text-slate-400 font-medium">Dooro qofka aad rabto inaad fariin u dirto si uu u furmo composer-ku.</p>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                                </div>
+                            )}
 
-                    {/* View: Profiles Grid */}
-                    {view === 'profiles' && (
-                        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Profiles Tracker</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {records.map(profile => (
-                                    <div key={profile.id} className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col cursor-pointer" onClick={() => { setView('queue'); setSelectedRecord(profile); }}>
-                                        <div className="h-20 bg-slate-900 relative p-6 flex items-end">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase relative z-10">{profile.id}</span>
-                                            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                                        </div>
-                                        <div className="p-6 pt-10 relative flex-1">
-                                            <div className="absolute -top-10 left-6 w-16 h-16 rounded-2xl bg-white border-4 border-white shadow-xl flex items-center justify-center font-black text-2xl text-slate-800">{profile.name.charAt(0)}</div>
-                                            <h4 className="text-lg font-black text-slate-800 leading-tight mb-1">{profile.name}</h4>
-                                            <p className="text-[10px] font-black text-indigo-600 uppercase mb-4 tracking-tighter">{profile.sector}</p>
-                                            <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed italic border-l-2 border-slate-100 pl-3">"{profile.description}"</p>
-                                        </div>
-                                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                                            <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md ${profile.status === RecordStatus.VERIFIED ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{profile.status}</span>
-                                            <ArrowUpRight size={14} className="text-slate-300 group-hover:text-indigo-600 transition-all" />
+                            {myDayTab === 'braindump' && (
+                                <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+                                    <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                                        <div className="relative z-10">
+                                            <div className="flex items-center gap-4 mb-8">
+                                                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-100">
+                                                    <Lightbulb size={24} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Thought Stream</h3>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Unstructured ideas and flash reminders.</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <form onSubmit={handleAddBrainThought} className="relative mb-10">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Maxaa maskaxdaada ku soo dhacay hadda?" 
+                                                    className="w-full px-8 py-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] outline-none focus:bg-white focus:border-indigo-100 focus:ring-4 focus:ring-indigo-500/5 transition-all text-lg font-medium pr-20 shadow-inner"
+                                                    value={currentBrainThought}
+                                                    onChange={(e) => setCurrentBrainThought(e.target.value)}
+                                                />
+                                                <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-4 bg-indigo-600 text-white rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
+                                                    <ArrowUpRight size={24} />
+                                                </button>
+                                            </form>
+
+                                            <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-4">
+                                                {brainDumpEntries.length === 0 ? (
+                                                    <div className="py-20 text-center text-slate-200">
+                                                        <Brain size={64} strokeWidth={1} className="mx-auto mb-4 opacity-50" />
+                                                        <p className="text-sm font-black uppercase tracking-widest">Lama hayo wax fikrado ah.</p>
+                                                    </div>
+                                                ) : (
+                                                    brainDumpEntries.map(entry => (
+                                                        <div key={entry.id} className="bg-slate-50/50 p-6 rounded-[1.5rem] border border-slate-100 group relative hover:bg-white hover:shadow-md transition-all">
+                                                            <div className="flex justify-between items-start gap-4">
+                                                                <p className="text-slate-800 font-medium text-lg leading-relaxed">{entry.text}</p>
+                                                                <button onClick={() => setBrainDumpEntries(brainDumpEntries.filter(e => e.id !== entry.id))} className="p-2 text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"><Trash2 size={16} /></button>
+                                                            </div>
+                                                            <div className="mt-3 flex items-center gap-2">
+                                                                <Clock size={12} className="text-slate-300" />
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{entry.timestamp}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                            
+                                            {brainDumpEntries.length > 0 && (
+                                                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
+                                                    <button onClick={() => setBrainDumpEntries([])} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors">Clear Stream</button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            )}
+
+                            {myDayTab === 'finance' && (
+                                <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center group hover:shadow-xl hover:shadow-emerald-500/5 transition-all">
+                                            <div className="p-4 bg-emerald-50 rounded-[1.5rem] text-emerald-600 mb-4 group-hover:scale-110 transition-transform"><TrendingUp size={32} /></div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Income</p>
+                                            <p className="text-3xl font-black text-emerald-600 mt-2">${financeSummary.income.toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center group hover:shadow-xl hover:shadow-red-500/5 transition-all">
+                                            <div className="p-4 bg-rose-50 rounded-[1.5rem] text-rose-600 mb-4 group-hover:scale-110 transition-transform"><TrendingDown size={32} /></div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Expense</p>
+                                            <p className="text-3xl font-black text-rose-600 mt-2">${financeSummary.expense.toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-[#0f172a] p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center text-center relative overflow-hidden group">
+                                            <div className="absolute inset-0 bg-indigo-500/10 blur-3xl rounded-full -mt-20 group-hover:bg-indigo-500/20 transition-all"></div>
+                                            <div className="relative z-10">
+                                                <div className="p-4 bg-white/10 rounded-[1.5rem] text-indigo-400 mb-4 inline-block group-hover:rotate-12 transition-transform"><Calculator size={32} /></div>
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Balance</p>
+                                                <p className={`text-3xl font-black mt-2 ${financeSummary.balance >= 0 ? 'text-white' : 'text-amber-400'}`}>
+                                                    ${financeSummary.balance.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {showFinanceForm && (
+                                        <div className="bg-white p-10 rounded-[3rem] border-2 border-indigo-100 shadow-2xl animate-in zoom-in-95 duration-300">
+                                            <div className="flex items-center gap-4 mb-8">
+                                                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-100"><Banknote size={20} /></div>
+                                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">New Transaction</h3>
+                                            </div>
+                                            <form onSubmit={handleAddFinanceEntry} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Reason / Description</label>
+                                                    <input name="description" required placeholder="Waxaad bixisay ama aad heshay..." className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none font-bold text-sm focus:bg-white focus:border-indigo-100 transition-all" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Amount ($)</label>
+                                                    <input name="amount" type="number" step="0.01" required placeholder="0.00" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none font-black text-xl focus:bg-white focus:border-indigo-100 transition-all" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Type</label>
+                                                    <select name="type" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none font-bold text-sm focus:bg-white focus:border-indigo-100 transition-all appearance-none cursor-pointer">
+                                                        <option value="expense">Expense (Lacag Bixis)</option>
+                                                        <option value="income">Income (Lacag Dakhli)</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Category</label>
+                                                    <input name="category" placeholder="e.g. Office, Salary, Travel..." className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none font-bold text-sm focus:bg-white focus:border-indigo-100 transition-all" />
+                                                </div>
+                                                <div className="md:col-span-2 flex justify-end gap-4 pt-6">
+                                                    <button type="button" onClick={() => setShowFinanceForm(false)} className="px-8 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
+                                                    <button type="submit" className="px-12 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all">Save Official Ledger Entry</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+                                        <div className="px-10 py-6 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Transaction Ledger</h4>
+                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">{financeEntries.length} Entries</span>
+                                        </div>
+                                        <div className="divide-y divide-slate-50">
+                                            {financeEntries.length === 0 ? (
+                                                <div className="py-24 text-center text-slate-300">
+                                                    <Wallet size={64} strokeWidth={1} className="mx-auto mb-4 opacity-50" />
+                                                    <p className="text-sm font-black uppercase tracking-widest">Eber Entries (Empty Ledger)</p>
+                                                </div>
+                                            ) : (
+                                                financeEntries.map(entry => (
+                                                    <div key={entry.id} className="px-10 py-6 flex items-center justify-between hover:bg-slate-50/50 transition-all group">
+                                                        <div className="flex items-center gap-6">
+                                                            <div className={`p-4 rounded-2xl shadow-sm ${entry.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                                {entry.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-lg font-black text-slate-800 leading-none">{entry.description}</h4>
+                                                                <div className="flex items-center gap-3 mt-2">
+                                                                    <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{entry.category}</span>
+                                                                    <span className="text-[9px] font-bold text-slate-300 uppercase">{new Date(entry.date).toLocaleDateString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-10">
+                                                            <p className={`text-2xl font-black italic ${entry.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                {entry.type === 'income' ? '+' : '-'}${entry.amount.toLocaleString()}
+                                                            </p>
+                                                            <button onClick={() => setFinanceEntries(financeEntries.filter(f => f.id !== entry.id))} className="p-3 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -969,7 +981,7 @@ const App: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                                 <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 text-center"><p className="text-5xl font-black text-indigo-600 leading-none">{todayStats.tasks}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Tasks Done</p></div>
-                                <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 text-center"><p className="text-5xl font-black text-emerald-600 leading-none">{todayStats.newlyVerified}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Newly Verified</p></div>
+                                <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 text-center"><p className="text-5xl font-black text-emerald-600 leading-none">{journalEntries.length}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">New Logs</p></div>
                                 <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 text-center"><p className="text-5xl font-black text-amber-500 leading-none">{todayStats.entries.length}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Session Logs</p></div>
                             </div>
                             <div className="bg-slate-900 p-12 rounded-[3rem] shadow-2xl relative overflow-hidden">
@@ -1063,7 +1075,17 @@ const App: React.FC = () => {
                     body { background-color: white !important; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+                
+                @keyframes pulse-subtle {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.85; transform: scale(0.99); }
+                }
+                .animate-pulse-subtle {
+                    animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
             `}} />
         </div>
     );

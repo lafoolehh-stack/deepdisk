@@ -18,24 +18,41 @@ const Charts: React.FC<ChartsProps> = ({ records }) => {
   }, [records]);
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-80">
-      <h3 className="text-lg font-semibold text-slate-800 mb-4">Distribution Overview</h3>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-          <YAxis axisLine={false} tickLine={false} />
-          <Tooltip 
-            cursor={{ fill: 'transparent' }}
-            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-          />
-          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-80 flex flex-col">
+      <h3 className="text-lg font-semibold text-slate-800 mb-4 shrink-0">Distribution Overview</h3>
+      <div className="flex-1 w-full min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis 
+              dataKey="name" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }} 
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 10, fill: '#94a3b8' }} 
+            />
+            <Tooltip 
+              cursor={{ fill: '#f8fafc' }}
+              contentStyle={{ 
+                borderRadius: '12px', 
+                border: 'none', 
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}
+            />
+            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };
